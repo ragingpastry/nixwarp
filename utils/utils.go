@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"strings"
 	"os"
+	"encoding/json"
 
-	"github.com/ragingpastry/nixos-configs/nixwarp/logger"
+	"github.com/ragingpastry/nixwarp/logger"
 )
 
 var Log *logger.Logger
@@ -17,6 +18,14 @@ type RunCommand struct {
 	Environment string
 	Directory string
 	Host string
+}
+
+type Hosts struct {
+	HostType string `json:"type"`
+}
+
+type FlakeOutput struct {
+	NixosConfigurations map[string]Hosts `json:"nixosConfigurations"`
 }
 
 func RunCmd(command *RunCommand) []byte  {
@@ -34,8 +43,9 @@ func RunCmd(command *RunCommand) []byte  {
 	}
 	err := cmd.Run()
 	if err != nil {                                                                        
-    	message := fmt.Sprintf("🚫 Error running `%s`! Error: %s", cmd.Args, string(stderr.Bytes()))
-    	Log.Error(message)
+    	message_stdout := fmt.Sprintf("🚫 Error running `%s`! Error: %s\n", cmd.Args, string(stdout.Bytes()))
+		message_stderr := fmt.Sprintf("🚫 Error running `%s`! Error: %s\n", cmd.Args, string(stderr.Bytes()))
+    	Log.Error(message_stdout+message_stderr)
     }
     Log.Debug(string(stdout.Bytes()))
 	return stdout.Bytes()
@@ -62,4 +72,20 @@ func RunRemoteCmd(command *RunCommand, node string) []byte {
     Log.Debug(string(stdout.Bytes()))
 	return stdout.Bytes()
 
+}
+
+func ParseNodes() []string {
+	var nodes []string
+	command := &RunCommand{
+		Command: "nix flake show --json",
+	}
+	flakeCmdOutput := RunCmd(command)
+	var flakeOutput FlakeOutput
+	json.Unmarshal([]byte(flakeCmdOutput), &flakeOutput)
+	for hostName, _ := range flakeOutput.NixosConfigurations {
+		Log.Debug(fmt.Sprintf("Found node %s", hostName))
+		nodes = append(nodes, hostName)
+	}
+
+	return nodes
 }
