@@ -14,7 +14,7 @@ import (
 var Log *logger.Logger
 
 
-func updateFlake() {
+func UpdateFlake() {
 	cmd := exec.Command("nix", "flake", "update")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -26,23 +26,27 @@ func updateFlake() {
 
 }
 
-func updatePackages() {
+func UpdatePackage(pkgName string, pkgDir string) {
+	Log.Info(fmt.Sprintf("🚀 Updating package %s", pkgName))
+	pkgUpdateCommand := &utils.RunCommand{
+		Command:   fmt.Sprintf("nix-update %s", pkgName),
+		Directory: pkgDir,
+	}
+	utils.RunCmd(pkgUpdateCommand)
+}
+
+func UpdatePackages(pkgDir string) {
 	Log.Debug("Updating local nixPkgs")
 	command := &utils.RunCommand{
 		Command:   "grep -lr fetchFromGitHub",
-		Directory: "pkgs/",
+		Directory: pkgDir,
 	}
 	output := utils.RunCmd(command)
 	pkgs := strings.Split(strings.TrimSpace(string(output)), "\n")
 
 	for _, pkg := range pkgs {
 		pkgName := filepath.Dir(pkg)
-		Log.Info(fmt.Sprintf("🚀 Updating package %s", pkgName))
-		pkgUpdateCommand := &utils.RunCommand{
-			Command:   fmt.Sprintf("nix-update %s", pkgName),
-			Directory: "pkgs/",
-		}
-		utils.RunCmd(pkgUpdateCommand)
+		UpdatePackage(pkgName, pkgDir)
 	}
 
 }
@@ -69,7 +73,7 @@ func rebootRequired(node string) bool {
 	return false
 }
 
-func updateNode(node string, reboot bool) {
+func UpdateNode(node string, reboot bool) {
 	Log.Debug(fmt.Sprintf("Running nixos-rebuild on node: %s", node))
 	command := &utils.RunCommand{
 		Command: fmt.Sprintf("nixos-rebuild --flake .#%s switch --target-host %s --use-remote-sudo --use-substitutes", node, node),
@@ -89,12 +93,3 @@ func updateNode(node string, reboot bool) {
 	}
 }
 
-func RunUpdates(nodes []string, reboot bool) {
-	updateFlake()
-	updatePackages()
-	for _, node := range nodes {
-		message := fmt.Sprintf("🚀 Starting updates for node %s", node)
-		Log.Info(message)
-		updateNode(node, reboot)
-	}
-}
