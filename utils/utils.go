@@ -89,3 +89,15 @@ func ParseNodes() []string {
 
 	return nodes
 }
+
+func CheckDependencies(dependencies []string) {
+	var depsMissing []string
+	for _, dep := range dependencies {
+		_, err := exec.LookPath(dep); if err != nil {
+			depsMissing = append(depsMissing)
+		}
+	}
+	if len(depsMissing) > 0 {
+		Log.Error(fmt.Sprintf("🚫 Error missing dependencies: %s", depsMissing))
+	}
+}
