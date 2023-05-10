@@ -30,8 +30,13 @@ var updateNodeCmd = &cobra.Command{
 	Short: "Run updates on NixOS nodes",
 	Long: "Run updates on NixOS nodes",
 	Run: func(cmd *cobra.Command, args []string) {
+		deps := []string{"nix", "ssh", "nixos-rebuild"}
+		utils.CheckDependencies(deps)
 		var nodes []string
-		if updateConfig.NodeConfig.AllNodes {
+		if updateConfig.UpdateFlake {
+			update.UpdateFlake()
+		}
+		if updateConfig.AllNodes {
 		  	log.Info("Running updates on all nodes")
 		  	nodes = utils.ParseNodes()
 		} else if len(args) > 0 {
@@ -42,8 +47,7 @@ var updateNodeCmd = &cobra.Command{
 
 		if len(nodes) > 0 {
 			for _, node := range nodes {
-				log.Info(fmt.Sprintf("🚀 Running updates on node %s", node))
-				update.UpdateNode(node, updateConfig.NodeConfig.Reboot)
+				update.UpdateNode(node, updateConfig.Reboot)
 			}
 		} else {
 			log.Error("🚫 Something went wrong! Couldn't find any nodes in our node list. Cowardly aborting...")
@@ -57,7 +61,6 @@ var updateFlakeCmd = &cobra.Command{
 	Short: "Run `nix flake update`",
 	Long: "Run `nix flake update`",
 	Run: func(cmd *cobra.Command, args []string) {
-		log.Info("Running `nix flake update`")
 		update.UpdateFlake()
 	},
 
@@ -70,13 +73,15 @@ var updatePkgCmd = &cobra.Command{
 	Long: "Run nix-update on a package. If no packages are specified try to be smart about it and about all packages.",
 	Run: func(cmd *cobra.Command, args []string) {
 		log.Info("Updating locally defined packages")
+		deps := []string{"nix-update"}
+		utils.CheckDependencies(deps)
 		if len(args) > 0 {
 			nixPackages := strings.Split(args[0], ",")
 			for _, nixPackage := range nixPackages {
-				update.UpdatePackage(nixPackage, updateConfig.PkgConfig.PkgDir)
+				update.UpdatePackage(nixPackage, updateConfig.PkgDir)
 			}
 		} else {
-			update.UpdatePackages(updateConfig.PkgConfig.PkgDir)
+			update.UpdatePackages(updateConfig.PkgDir)
 		}
 	},
 }
@@ -86,12 +91,14 @@ var updateAllCmd = &cobra.Command{
 	Aliases: []string{"a"},
 	Short: "Run all updates. Flake, nixpkgs, and nodes.",
 	Run: func(cmd *cobra.Command, args []string) {
+		deps := []string{"nix-update", "nix", "ssh", "nixos-rebuild"}
+		utils.CheckDependencies(deps)
 		update.UpdateFlake()
-		update.UpdatePackages(updateConfig.PkgConfig.PkgDir)
+		update.UpdatePackages(updateConfig.PkgDir)
 		for _, node := range utils.ParseNodes() {
 			message := fmt.Sprintf("🚀 Starting updates for node %s", node)
 			log.Info(message)
-			update.UpdateNode(node, updateConfig.NodeConfig.Reboot)
+			update.UpdateNode(node, updateConfig.Reboot)
 		}
 	},
 }
@@ -100,9 +107,10 @@ func bindUpdateFlags() {
 	updateNodeFlags := updateNodeCmd.Flags()
 	updatePkgFlags := updatePkgCmd.Flags()
 
-	updateNodeFlags.BoolVarP(&updateConfig.NodeConfig.AllNodes, "all-nodes", "a", false, "Run updates on all nodes")
-	updateNodeFlags.BoolVarP(&updateConfig.NodeConfig.Reboot, "reboot", "r", false, "Force reboots on nodes")
-	updatePkgFlags.StringVarP(&updateConfig.PkgConfig.PkgDir, "pkg-dir", "", "pkgs/", "Directory containing local nixpkg definitions")
+	updateNodeFlags.BoolVarP(&updateConfig.AllNodes, "all-nodes", "a", false, "Run updates on all nodes")
+	updateNodeFlags.BoolVarP(&updateConfig.Reboot, "reboot", "r", false, "Force reboots on nodes")
+	updateNodeFlags.BoolVarP(&updateConfig.UpdateFlake, "update-flake", "", false, "Updates the local flake")
+	updatePkgFlags.StringVarP(&updateConfig.PkgDir, "pkg-dir", "", "pkgs/", "Directory containing local nixpkg definitions")
 }
 
 func init() {

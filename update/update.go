@@ -6,22 +6,25 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"os"
+	"time"
 
 	"github.com/ragingpastry/nixwarp/logger"
 	"github.com/ragingpastry/nixwarp/utils"
+	"github.com/briandowns/spinner"
 )
 
 var Log *logger.Logger
 
 
 func UpdateFlake() {
+	Log.Info("Updating flake.lock")
 	cmd := exec.Command("nix", "flake", "update")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		message := fmt.Sprintf("🚫 Error running `nix flake update`! Error: %s", err.Error())
 		Log.Error(message)
 	}
-	Log.Debug("Updating flake.lock")
 	Log.Debug(string(out))
 
 }
@@ -74,11 +77,15 @@ func rebootRequired(node string) bool {
 }
 
 func UpdateNode(node string, reboot bool) {
-	Log.Debug(fmt.Sprintf("Running nixos-rebuild on node: %s", node))
+	Log.Info(fmt.Sprintf("🚀 Running updates on node %s", node))
+	s := spinner.New(spinner.CharSets[11], 100*time.Millisecond, spinner.WithWriter(os.Stderr))
+	s.Suffix = fmt.Sprintf(" Updating node %s...", node)
+	s.Start()
 	command := &utils.RunCommand{
 		Command: fmt.Sprintf("nixos-rebuild --flake .#%s switch --target-host %s --use-remote-sudo --use-substitutes", node, node),
 	}
 	utils.RunCmd(command)
+	s.Stop()
 	Log.Info(fmt.Sprintf("✅ Updates have completed for node %s", node))
 	if rebootRequired(node) {
 		Log.Warn(fmt.Sprintf("❗ Reboot is required for node %s", node))
