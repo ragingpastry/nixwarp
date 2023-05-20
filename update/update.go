@@ -3,19 +3,18 @@ package update
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"os"
 	"time"
 
+	"github.com/briandowns/spinner"
 	"github.com/ragingpastry/nixwarp/logger"
 	"github.com/ragingpastry/nixwarp/utils"
-	"github.com/briandowns/spinner"
 )
 
 var Log *logger.Logger
-
 
 func UpdateFlake() {
 	Log.Info("Updating flake.lock")
@@ -44,7 +43,12 @@ func UpdatePackages(pkgDir string) {
 		Command:   "grep -lr fetchFromGitHub",
 		Directory: pkgDir,
 	}
-	output := utils.RunCmd(command)
+	output, err := utils.RunCmd(command)
+	if err != nil {
+		message := fmt.Sprintf("🚫 Error running `%s`! Error: %s", command.Command, err.Error())
+		Log.Error(message)
+		os.Exit(1)
+	}
 	pkgs := strings.Split(strings.TrimSpace(string(output)), "\n")
 
 	for _, pkg := range pkgs {
@@ -69,9 +73,9 @@ func rebootRequired(node string) bool {
 		} else {
 			message := fmt.Sprintf("🚫 Error running `%s`! Error: %s", cmd.Args, string(stderr.Bytes()))
 			Log.Error(message)
-		};
-	};
-    Log.Debug(string(stdout.Bytes()))
+		}
+	}
+	Log.Debug(string(stdout.Bytes()))
 	Log.Debug("Node does not require a reboot")
 	return false
 }
@@ -79,8 +83,14 @@ func rebootRequired(node string) bool {
 func UpdateNode(node string, reboot bool) {
 	Log.Info(fmt.Sprintf("🚀 Running updates on node %s", node))
 	s := spinner.New(spinner.CharSets[11], 100*time.Millisecond, spinner.WithWriter(os.Stderr))
-	s.Suffix = fmt.Sprintf(" Updating node %s...", node)
+	s.Suffix = fmt.Sprintf(" Checking if node %s is online...", node)
 	s.Start()
+	if !utils.CheckNodeOnline(node) {
+		s.Stop()
+		Log.Warn(fmt.Sprintf("❗ Node %s is offline. Skipping...", node))
+		return
+	}
+	s.Suffix = fmt.Sprintf(" Node %s is online. Running updates...", node)
 	command := &utils.RunCommand{
 		Command: fmt.Sprintf("nixos-rebuild --flake .#%s switch --target-host %s --use-remote-sudo --use-substitutes", node, node),
 	}
@@ -91,12 +101,11 @@ func UpdateNode(node string, reboot bool) {
 		Log.Warn(fmt.Sprintf("❗ Reboot is required for node %s", node))
 		if reboot {
 			rebootCmd := &utils.RunCommand{
-				Command:   "sudo shutdown -r +1 'System will reboot in 1 minute.'",
-				Host: node,
+				Command: "sudo shutdown -r +1 'System will reboot in 1 minute.'",
+				Host:    node,
 			}
 			utils.RunRemoteCmd(rebootCmd, node)
 			Log.Warn(fmt.Sprintf("❗ Reboot scheduled in 1 minute for node %s", node))
 		}
 	}
 }
-

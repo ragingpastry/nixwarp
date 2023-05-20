@@ -1,34 +1,34 @@
 package cmd
 
-
 import (
 	"fmt"
 	"strings"
+	"sync"
 
-	"github.com/spf13/cobra"
 	"github.com/ragingpastry/nixwarp/logger"
-	"github.com/ragingpastry/nixwarp/utils"
-	"github.com/ragingpastry/nixwarp/update"
 	"github.com/ragingpastry/nixwarp/types"
+	"github.com/ragingpastry/nixwarp/update"
+	"github.com/ragingpastry/nixwarp/utils"
+	"github.com/spf13/cobra"
 )
 
 var (
 	updateConfig = types.UpdateConfig{}
-	log = logger.NewLogger(false)
+	log          = logger.NewLogger(false)
 )
 
 var updateCmd = &cobra.Command{
-	Use: "update",
+	Use:     "update",
 	Aliases: []string{"u"},
-	Short: "Run updates",
+	Short:   "Run updates",
 }
 
 var updateNodeCmd = &cobra.Command{
-	Use: "node [node1|node1,node2]",
+	Use:     "node [node1|node1,node2]",
 	Aliases: []string{"n"},
-	Args: cobra.MaximumNArgs(1),
-	Short: "Run updates on NixOS nodes",
-	Long: "Run updates on NixOS nodes",
+	Args:    cobra.MaximumNArgs(1),
+	Short:   "Run updates on NixOS nodes",
+	Long:    "Run updates on NixOS nodes",
 	Run: func(cmd *cobra.Command, args []string) {
 		deps := []string{"nix", "ssh", "nixos-rebuild"}
 		utils.CheckDependencies(deps)
@@ -37,8 +37,8 @@ var updateNodeCmd = &cobra.Command{
 			update.UpdateFlake()
 		}
 		if updateConfig.AllNodes {
-		  	log.Info("Running updates on all nodes")
-		  	nodes = utils.ParseNodes()
+			log.Info("Running updates on all nodes")
+			nodes = utils.ParseNodes()
 		} else if len(args) > 0 {
 			nodes = strings.Split(args[0], ",")
 		} else {
@@ -46,9 +46,15 @@ var updateNodeCmd = &cobra.Command{
 		}
 
 		if len(nodes) > 0 {
+			var wg sync.WaitGroup
+			wg.Add(len(nodes))
 			for _, node := range nodes {
-				update.UpdateNode(node, updateConfig.Reboot)
+				go func(node string) {
+					update.UpdateNode(node, updateConfig.Reboot)
+					wg.Done()
+				}(node)
 			}
+			wg.Wait()
 		} else {
 			log.Error("🚫 Something went wrong! Couldn't find any nodes in our node list. Cowardly aborting...")
 		}
@@ -56,21 +62,20 @@ var updateNodeCmd = &cobra.Command{
 }
 
 var updateFlakeCmd = &cobra.Command{
-	Use: "flake",
+	Use:     "flake",
 	Aliases: []string{"f"},
-	Short: "Run `nix flake update`",
-	Long: "Run `nix flake update`",
+	Short:   "Run `nix flake update`",
+	Long:    "Run `nix flake update`",
 	Run: func(cmd *cobra.Command, args []string) {
 		update.UpdateFlake()
 	},
-
 }
 
 var updatePkgCmd = &cobra.Command{
-	Use: "package [NAME]",
+	Use:     "package [NAME]",
 	Aliases: []string{"p"},
-	Short: "Run nix-update on a package",
-	Long: "Run nix-update on a package. If no packages are specified try to be smart about it and about all packages.",
+	Short:   "Run nix-update on a package",
+	Long:    "Run nix-update on a package. If no packages are specified try to be smart about it and about all packages.",
 	Run: func(cmd *cobra.Command, args []string) {
 		log.Info("Updating locally defined packages")
 		deps := []string{"nix-update"}
@@ -87,9 +92,9 @@ var updatePkgCmd = &cobra.Command{
 }
 
 var updateAllCmd = &cobra.Command{
-	Use: "all",
+	Use:     "all",
 	Aliases: []string{"a"},
-	Short: "Run all updates. Flake, nixpkgs, and nodes.",
+	Short:   "Run all updates. Flake, nixpkgs, and nodes.",
 	Run: func(cmd *cobra.Command, args []string) {
 		deps := []string{"nix-update", "nix", "ssh", "nixos-rebuild"}
 		utils.CheckDependencies(deps)

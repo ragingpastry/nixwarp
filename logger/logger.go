@@ -2,8 +2,6 @@ package logger
 
 import (
 	"github.com/fatih/color"
-	"os"
-
 )
 
 func (logger *Logger) Warn(message string) {
@@ -16,7 +14,6 @@ func (logger *Logger) Info(message string) {
 
 func (logger *Logger) Error(message string) {
 	color.Red(message)
-	os.Exit(1)
 }
 
 func (logger *Logger) Debug(message string) {

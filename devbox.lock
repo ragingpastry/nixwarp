@@ -1,0 +1,50 @@
+{
+  "lockfile_version": "1",
+  "packages": {
+    "go-outline": {
+      "last_modified": "",
+      "resolved": "github:NixOS/nixpkgs/f80ac848e3d6f0c12c52758c0f25c10c97ca3b62#go-outline",
+      "version": ""
+    },
+    "go_1_19": {
+      "last_modified": "",
+      "resolved": "github:NixOS/nixpkgs/f80ac848e3d6f0c12c52758c0f25c10c97ca3b62#go_1_19",
+      "version": ""
+    },
+    "gocode": {
+      "last_modified": "",
+      "resolved": "github:NixOS/nixpkgs/f80ac848e3d6f0c12c52758c0f25c10c97ca3b62#gocode",
+      "version": ""
+    },
+    "gocode-gomod": {
+      "last_modified": "",
+      "resolved": "github:NixOS/nixpkgs/f80ac848e3d6f0c12c52758c0f25c10c97ca3b62#gocode-gomod",
+      "version": ""
+    },
+    "godef": {
+      "last_modified": "",
+      "resolved": "github:NixOS/nixpkgs/f80ac848e3d6f0c12c52758c0f25c10c97ca3b62#godef",
+      "version": ""
+    },
+    "golint": {
+      "last_modified": "",
+      "resolved": "github:NixOS/nixpkgs/f80ac848e3d6f0c12c52758c0f25c10c97ca3b62#golint",
+      "version": ""
+    },
+    "gopkgs": {
+      "last_modified": "",
+      "resolved": "github:NixOS/nixpkgs/f80ac848e3d6f0c12c52758c0f25c10c97ca3b62#gopkgs",
+      "version": ""
+    },
+    "gopls": {
+      "last_modified": "",
+      "resolved": "github:NixOS/nixpkgs/f80ac848e3d6f0c12c52758c0f25c10c97ca3b62#gopls",
+      "version": ""
+    },
+    "gotools": {
+      "last_modified": "",
+      "resolved": "github:NixOS/nixpkgs/f80ac848e3d6f0c12c52758c0f25c10c97ca3b62#gotools",
+      "version": ""
+    }
+  }
+}
