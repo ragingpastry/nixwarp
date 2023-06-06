@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"strings"
-	"sync"
+	"time"
 
+	"github.com/briandowns/spinner"
 	"github.com/ragingpastry/nixwarp/logger"
 	"github.com/ragingpastry/nixwarp/types"
 	"github.com/ragingpastry/nixwarp/update"
@@ -23,6 +25,7 @@ var updateCmd = &cobra.Command{
 	Short:   "Run updates",
 }
 
+// Too much logic in this command. Should be broken up into smaller functions.
 var updateNodeCmd = &cobra.Command{
 	Use:     "node [node1|node1,node2]",
 	Aliases: []string{"n"},
@@ -46,15 +49,8 @@ var updateNodeCmd = &cobra.Command{
 		}
 
 		if len(nodes) > 0 {
-			var wg sync.WaitGroup
-			wg.Add(len(nodes))
-			for _, node := range nodes {
-				go func(node string) {
-					update.UpdateNode(node, updateConfig.Reboot)
-					wg.Done()
-				}(node)
-			}
-			wg.Wait()
+			update.UpdateNodes(nodes, updateConfig.Reboot)
+
 		} else {
 			log.Error("🚫 Something went wrong! Couldn't find any nodes in our node list. Cowardly aborting...")
 		}
@@ -103,7 +99,8 @@ var updateAllCmd = &cobra.Command{
 		for _, node := range utils.ParseNodes() {
 			message := fmt.Sprintf("🚀 Starting updates for node %s", node)
 			log.Info(message)
-			update.UpdateNode(node, updateConfig.Reboot)
+			s := spinner.New(spinner.CharSets[11], 100*time.Millisecond, spinner.WithWriter(os.Stderr))
+			update.UpdateNode(node, updateConfig.Reboot, s)
 		}
 	},
 }

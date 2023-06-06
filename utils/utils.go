@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/briandowns/spinner"
 	"github.com/ragingpastry/nixwarp/logger"
 )
 
@@ -45,7 +46,9 @@ func RunCmd(command *RunCommand) ([]byte, error) {
 	if err != nil {
 		message_stdout := fmt.Sprintf("🚫 Error running `%s`! Error: %s\n", cmd.Args, string(stdout.Bytes()))
 		message_stderr := fmt.Sprintf("🚫 Error running `%s`! Error: %s\n", cmd.Args, string(stderr.Bytes()))
-		Log.Debug(message_stdout + message_stderr)
+		message := message_stdout + message_stderr
+		Log.Debug(message)
+		return stderr.Bytes(), err
 	}
 	Log.Debug(string(stdout.Bytes()))
 	return stdout.Bytes(), err
@@ -123,4 +126,30 @@ func CheckNodeOnline(node string) bool {
 	} else {
 		return false
 	}
+}
+
+// Spinner message helper function for use in goroutines
+func SpinnerMessage(message string, s *spinner.Spinner) {
+	s.Suffix = message
+	if !s.Active() {
+		s.Start()
+	}
+}
+
+func SpinnerMessageWarn(message string, s *spinner.Spinner) {
+	s.Stop()
+	Log.Warn(message)
+	s.Start()
+}
+
+func SpinnerMessageInfo(message string, s *spinner.Spinner) {
+	s.Stop()
+	Log.Info(message)
+	s.Start()
+}
+
+func SpinnerMessageError(message string, s *spinner.Spinner) {
+	s.Stop()
+	Log.Error(message)
+	s.Start()
 }

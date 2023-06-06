@@ -11,7 +11,9 @@ import (
 
 	"github.com/briandowns/spinner"
 	"github.com/ragingpastry/nixwarp/logger"
+	"github.com/ragingpastry/nixwarp/types"
 	"github.com/ragingpastry/nixwarp/utils"
+	"golang.org/x/sync/errgroup"
 )
 
 var Log *logger.Logger
@@ -80,32 +82,70 @@ func rebootRequired(node string) bool {
 	return false
 }
 
-func UpdateNode(node string, reboot bool) {
-	Log.Info(fmt.Sprintf("🚀 Running updates on node %s", node))
-	s := spinner.New(spinner.CharSets[11], 100*time.Millisecond, spinner.WithWriter(os.Stderr))
-	s.Suffix = fmt.Sprintf(" Checking if node %s is online...", node)
-	s.Start()
+func UpdateNode(node string, reboot bool, spinner *spinner.Spinner) error {
+	utils.SpinnerMessage(fmt.Sprintf(" Checking if node %s is online...", node), spinner)
 	if !utils.CheckNodeOnline(node) {
-		s.Stop()
-		Log.Warn(fmt.Sprintf("❗ Node %s is offline. Skipping...", node))
-		return
+		utils.SpinnerMessageWarn(fmt.Sprintf("Node %s is offline. Skipping...", node), spinner)
+		return nil
 	}
-	s.Suffix = fmt.Sprintf(" Node %s is online. Running updates...", node)
+	utils.SpinnerMessage(fmt.Sprintf(" Node %s is online. Running updates...", node), spinner)
 	command := &utils.RunCommand{
 		Command: fmt.Sprintf("nixos-rebuild --flake .#%s switch --target-host %s --use-remote-sudo --use-substitutes", node, node),
 	}
-	utils.RunCmd(command)
-	s.Stop()
-	Log.Info(fmt.Sprintf("✅ Updates have completed for node %s", node))
+	output, err := utils.RunCmd(command)
+	Log.Debug(string(output))
+	if err != nil {
+		utils.SpinnerMessageError(fmt.Sprintf("🚫 Error updating node %s!", node), spinner)
+		nodeErr := types.NodeError{Node: node, Err: err, Command: command.Command}
+		return &nodeErr
+	}
+
+	utils.SpinnerMessageInfo(fmt.Sprintf("✅ Updates have completed for node %s", node), spinner)
 	if rebootRequired(node) {
-		Log.Warn(fmt.Sprintf("❗ Reboot is required for node %s", node))
+		utils.SpinnerMessageWarn(fmt.Sprintf("Reboot is required for node %s", node), spinner)
 		if reboot {
 			rebootCmd := &utils.RunCommand{
 				Command: "sudo shutdown -r +1 'System will reboot in 1 minute.'",
 				Host:    node,
 			}
 			utils.RunRemoteCmd(rebootCmd, node)
-			Log.Warn(fmt.Sprintf("❗ Reboot scheduled in 1 minute for node %s", node))
+			utils.SpinnerMessageWarn(fmt.Sprintf("❗ Reboot scheduled in 1 minute for node %s", node), spinner)
+		}
+	}
+
+	return nil
+}
+
+func UpdateNodes(nodes []string, reboot bool) {
+	var g errgroup.Group
+	errChan := make(chan *types.NodeError, len(nodes))
+	for _, node := range nodes {
+		s := spinner.New(spinner.CharSets[11], 100*time.Millisecond, spinner.WithWriter(os.Stderr))
+		defer s.Stop()
+		Log.Info(fmt.Sprintf("🚀 Running updates on node %s", node))
+		g.Go(func(node string) func() error {
+			return func() error {
+				err := UpdateNode(node, reboot, s)
+				if err != nil {
+					nodeErr := &types.NodeError{Node: node, Err: err}
+					errChan <- nodeErr
+					return nodeErr
+				}
+				errChan <- nil
+				return nil
+			}
+		}(node))
+	}
+	var nodeErrors []*types.NodeError
+	g.Wait()
+
+	for i := 0; i < len(nodes); i++ {
+		nodeErrors = append(nodeErrors, <-errChan)
+	}
+	close(errChan)
+	for _, err := range nodeErrors {
+		if err != nil {
+			Log.Error(fmt.Sprintf("🚫 Error updating nodes %s", err.Node))
 		}
 	}
 }
