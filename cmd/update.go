@@ -2,11 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"strings"
-	"time"
 
-	"github.com/briandowns/spinner"
 	"github.com/ragingpastry/nixwarp/logger"
 	"github.com/ragingpastry/nixwarp/types"
 	"github.com/ragingpastry/nixwarp/update"
@@ -99,8 +96,7 @@ var updateAllCmd = &cobra.Command{
 		for _, node := range utils.ParseNodes() {
 			message := fmt.Sprintf("🚀 Starting updates for node %s", node)
 			log.Info(message)
-			s := spinner.New(spinner.CharSets[11], 100*time.Millisecond, spinner.WithWriter(os.Stderr))
-			update.UpdateNode(node, updateConfig.Reboot, s)
+			update.UpdateNode(node, updateConfig.Reboot)
 		}
 	},
 }

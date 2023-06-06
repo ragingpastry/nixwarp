@@ -82,34 +82,37 @@ func rebootRequired(node string) bool {
 	return false
 }
 
-func UpdateNode(node string, reboot bool, spinner *spinner.Spinner) error {
-	utils.SpinnerMessage(fmt.Sprintf(" Checking if node %s is online...", node), spinner)
+func UpdateNode(node string, reboot bool) error {
+	s := spinner.New(spinner.CharSets[11], 100*time.Millisecond, spinner.WithWriter(os.Stderr))
+	defer s.Stop()
+
+	utils.SpinnerMessage(fmt.Sprintf(" Checking if node %s is online...", node), s)
 	if !utils.CheckNodeOnline(node) {
-		utils.SpinnerMessageWarn(fmt.Sprintf("Node %s is offline. Skipping...", node), spinner)
+		utils.SpinnerMessageWarn(fmt.Sprintf("Node %s is offline. Skipping...", node), s)
 		return nil
 	}
-	utils.SpinnerMessage(fmt.Sprintf(" Node %s is online. Running updates...", node), spinner)
+	utils.SpinnerMessage(fmt.Sprintf(" Node %s is online. Running updates...", node), s)
 	command := &utils.RunCommand{
 		Command: fmt.Sprintf("nixos-rebuild --flake .#%s switch --target-host %s --use-remote-sudo --use-substitutes", node, node),
 	}
 	output, err := utils.RunCmd(command)
 	Log.Debug(string(output))
 	if err != nil {
-		utils.SpinnerMessageError(fmt.Sprintf("🚫 Error updating node %s!", node), spinner)
+		utils.SpinnerMessageError(fmt.Sprintf("🚫 Error updating node %s!", node), s)
 		nodeErr := types.NodeError{Node: node, Err: err, Command: command.Command}
 		return &nodeErr
 	}
 
-	utils.SpinnerMessageInfo(fmt.Sprintf("✅ Updates have completed for node %s", node), spinner)
+	utils.SpinnerMessageInfo(fmt.Sprintf("✅ Updates have completed for node %s", node), s)
 	if rebootRequired(node) {
-		utils.SpinnerMessageWarn(fmt.Sprintf("Reboot is required for node %s", node), spinner)
+		utils.SpinnerMessageWarn(fmt.Sprintf("Reboot is required for node %s", node), s)
 		if reboot {
 			rebootCmd := &utils.RunCommand{
 				Command: "sudo shutdown -r +1 'System will reboot in 1 minute.'",
 				Host:    node,
 			}
 			utils.RunRemoteCmd(rebootCmd, node)
-			utils.SpinnerMessageWarn(fmt.Sprintf("❗ Reboot scheduled in 1 minute for node %s", node), spinner)
+			utils.SpinnerMessageWarn(fmt.Sprintf("❗ Reboot scheduled in 1 minute for node %s", node), s)
 		}
 	}
 
@@ -125,7 +128,7 @@ func UpdateNodes(nodes []string, reboot bool) {
 		Log.Info(fmt.Sprintf("🚀 Running updates on node %s", node))
 		g.Go(func(node string) func() error {
 			return func() error {
-				err := UpdateNode(node, reboot, s)
+				err := UpdateNode(node, reboot)
 				if err != nil {
 					nodeErr := &types.NodeError{Node: node, Err: err}
 					errChan <- nodeErr
